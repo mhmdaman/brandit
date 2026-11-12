@@ -1,0 +1,162 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum OrgType {
+  AGENCY
+  CREATOR
+  BRAND
+}
+
+enum Platform {
+  YOUTUBE
+  INSTAGRAM
+  TIKTOK
+  FACEBOOK
+  OTHER
+}
+
+enum Medium {
+  VIDEO
+  PRINT
+  OUTDOOR
+  DIGITAL
+  SOCIAL
+  AUDIO
+}
+
+enum Track {
+  PROFESSIONAL
+  STUDENT
+}
+
+enum AdStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum UserRole {
+  USER
+  EDITOR
+  ADMIN
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  type      OrgType
+  name      String
+  slug      String   @unique
+  bio       String?
+  country   String?
+  website   String?
+  logoUrl   String?
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  ads   Ad[]   @relation("OrgAds")
+  users User[]
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  industry  String?
+  parentId  String?
+  parent    Brand?   @relation("BrandHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Brand[]  @relation("BrandHierarchy")
+  website   String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  products Product[]
+  ads      Ad[]
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String
+  brandId   String
+  brand     Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  // Relations
+  ads Ad[]
+
+  @@unique([brandId, slug])
+}
+
+model Ad {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  url         String    @unique
+  platform    Platform
+  externalId  String?
+  imageUrl    String?
+  medium      Medium
+  track       Track
+  year        Int
+  country         String
+  status          AdStatus  @default(PENDING)
+  rejectionReason String?
+  featuredAt      DateTime?
+  brandId         String
+  brand           Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  orgId           String
+  org             Organization @relation("OrgAds", fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  tags    Tag[]
+  reports Report[]
+
+  @@index([status, createdAt])
+  @@index([brandId])
+  @@index([orgId])
+  @@index([featuredAt])
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  reason    String
+  createdAt DateTime @default(now())
+  adId      String
+  ad        Ad       @relation(fields: [adId], references: [id], onDelete: Cascade)
+
+  @@index([adId])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  // Relations
+  ads Ad[]
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  role         UserRole     @default(USER)
+  orgId        String?
+  org          Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+}

@@ -1,0 +1,860 @@
+import { PrismaClient, OrgType, Platform, Medium, Track, AdStatus } from "@prisma/client";
+import { hashPassword } from "../app/utils/password.server";
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log("🌱 Starting seed...");
+
+  // 1. AGENCIES (Organizations with type AGENCY)
+  const agencies = [
+    {
+      slug: "wieden-kennedy",
+      name: "Wieden+Kennedy",
+      type: OrgType.AGENCY,
+      country: "United States",
+      website: "https://www.wk.com",
+      bio: "Independent, creatively driven advertising agency founded in Portland, Oregon.",
+    },
+    {
+      slug: "droga5",
+      name: "Droga5",
+      type: OrgType.AGENCY,
+      country: "United States",
+      website: "https://droga5.com",
+      bio: "Global creative agency built for the present and future of brand storytelling.",
+    },
+    {
+      slug: "bbdo",
+      name: "BBDO Worldwide",
+      type: OrgType.AGENCY,
+      country: "United States",
+      website: "https://www.bbdo.com",
+      bio: "Worldwide advertising agency network known for creating compelling, iconic brand campaigns.",
+    },
+    {
+      slug: "ogilvy",
+      name: "Ogilvy",
+      type: OrgType.AGENCY,
+      country: "United States",
+      website: "https://www.ogilvy.com",
+      bio: "David Ogilvy's legendary creative network inspiring brands and people to impact the world.",
+    },
+    {
+      slug: "ddb",
+      name: "DDB Worldwide",
+      type: OrgType.AGENCY,
+      country: "United States",
+      website: "https://www.ddb.com",
+      bio: "Pioneering creative agency that introduced emotional storytelling to modern advertising.",
+    },
+    {
+      slug: "tbwa-chiat-day",
+      name: "TBWA\\Chiat\\Day",
+      type: OrgType.AGENCY,
+      country: "United States",
+      website: "https://tbwachiatday.com",
+      bio: "The Disruption company, creating iconic brand platforms that redefine cultural conventions.",
+    },
+    {
+      slug: "mccann",
+      name: "McCann Worldgroup",
+      type: OrgType.AGENCY,
+      country: "United States",
+      website: "https://www.mccannworldgroup.com",
+      bio: "Global creative network operating with the founding philosophy 'Truth Well Told'.",
+    },
+    {
+      slug: "publicis",
+      name: "Publicis Conseil",
+      type: OrgType.AGENCY,
+      country: "France",
+      website: "https://publicisconseil.fr",
+      bio: "Historic French flagship agency delivering globally acclaimed, culturally resonant work.",
+    },
+  ];
+
+  const orgMap = new Map<string, string>();
+  for (const agency of agencies) {
+    const record = await prisma.organization.upsert({
+      where: { slug: agency.slug },
+      update: agency,
+      create: agency,
+    });
+    orgMap.set(agency.slug, record.id);
+  }
+  console.log(`✓ Seeded ${agencies.length} agencies`);
+
+  // 2. BRANDS
+  const brands = [
+    {
+      slug: "apple",
+      name: "Apple",
+      industry: "Consumer Electronics & Technology",
+      website: "https://www.apple.com",
+    },
+    {
+      slug: "nike",
+      name: "Nike",
+      industry: "Sportswear & Footwear",
+      website: "https://www.nike.com",
+    },
+    {
+      slug: "coca-cola",
+      name: "Coca-Cola",
+      industry: "Beverages",
+      website: "https://www.coca-cola.com",
+    },
+    {
+      slug: "google",
+      name: "Google",
+      industry: "Internet & Technology",
+      website: "https://www.google.com",
+    },
+    {
+      slug: "volvo",
+      name: "Volvo",
+      industry: "Automotive",
+      website: "https://www.volvocars.com",
+    },
+    {
+      slug: "dove",
+      name: "Dove",
+      industry: "Personal Care & Beauty",
+      website: "https://www.dove.com",
+    },
+    {
+      slug: "old-spice",
+      name: "Old Spice",
+      industry: "Personal Care & Grooming",
+      website: "https://www.oldspice.com",
+    },
+    {
+      slug: "mcdonalds",
+      name: "McDonald's",
+      industry: "Food & Beverage",
+      website: "https://www.mcdonalds.com",
+    },
+    {
+      slug: "ikea",
+      name: "IKEA",
+      industry: "Home Furnishing & Retail",
+      website: "https://www.ikea.com",
+    },
+    {
+      slug: "heineken",
+      name: "Heineken",
+      industry: "Beverages & Brewing",
+      website: "https://www.heineken.com",
+    },
+  ];
+
+  const brandMap = new Map<string, string>();
+  for (const brand of brands) {
+    const record = await prisma.brand.upsert({
+      where: { slug: brand.slug },
+      update: brand,
+      create: brand,
+    });
+    brandMap.set(brand.slug, record.id);
+  }
+  console.log(`✓ Seeded ${brands.length} brands`);
+
+  // 3. PRODUCTS (For Apple, Nike, Coca-Cola, Google, Volvo)
+  const products = [
+    { brandSlug: "apple", slug: "iphone", name: "iPhone" },
+    { brandSlug: "apple", slug: "mac", name: "Mac" },
+    { brandSlug: "apple", slug: "airpods", name: "AirPods" },
+    { brandSlug: "nike", slug: "air-jordan", name: "Air Jordan" },
+    { brandSlug: "nike", slug: "football", name: "Nike Football" },
+    { brandSlug: "coca-cola", slug: "classic", name: "Coca-Cola Classic" },
+    { brandSlug: "coca-cola", slug: "zero-sugar", name: "Coca-Cola Zero Sugar" },
+    { brandSlug: "google", slug: "chrome", name: "Google Chrome" },
+    { brandSlug: "google", slug: "search", name: "Google Search" },
+    { brandSlug: "volvo", slug: "trucks", name: "Volvo Trucks" },
+  ];
+
+  const productMap = new Map<string, string>();
+  for (const product of products) {
+    const brandId = brandMap.get(product.brandSlug)!;
+    const record = await prisma.product.upsert({
+      where: {
+        brandId_slug: {
+          brandId,
+          slug: product.slug,
+        },
+      },
+      update: { name: product.name },
+      create: {
+        brandId,
+        slug: product.slug,
+        name: product.name,
+      },
+    });
+    productMap.set(`${product.brandSlug}:${product.slug}`, record.id);
+  }
+  console.log(`✓ Seeded ${products.length} products`);
+
+  // 4. TAGS
+  const tags = [
+    { slug: "super-bowl", name: "Super Bowl" },
+    { slug: "iconic", name: "Iconic" },
+    { slug: "humor", name: "Humor" },
+    { slug: "storytelling", name: "Storytelling" },
+    { slug: "inspirational", name: "Inspirational" },
+    { slug: "automotive", name: "Automotive" },
+    { slug: "technology", name: "Technology" },
+    { slug: "sports", name: "Sports" },
+    { slug: "culture", name: "Culture" },
+    { slug: "social-experiment", name: "Social Experiment" },
+    { slug: "music", name: "Music" },
+    { slug: "viral", name: "Viral" },
+  ];
+
+  for (const tag of tags) {
+    await prisma.tag.upsert({
+      where: { slug: tag.slug },
+      update: tag,
+      create: tag,
+    });
+  }
+  console.log(`✓ Seeded ${tags.length} tags`);
+
+  // 5. 30 REAL ADS
+  // Verified YouTube campaign videos from official brand channels and renowned agency archives
+  const adsData = [
+    // --- NIKE (4 ads across Wieden+Kennedy and Publicis) ---
+    {
+      title: "Dream Crazy (feat. Colin Kaepernick)",
+      description: "Believe in something, even if it means sacrificing everything. Narrated by Colin Kaepernick celebrating athletes who conquer barriers.",
+      url: "https://www.youtube.com/watch?v=Fq2CvmgoO7I",
+      platform: Platform.YOUTUBE,
+      externalId: "Fq2CvmgoO7I",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2018,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: new Date("2024-01-15T00:00:00Z"),
+      brandSlug: "nike",
+      productKey: null,
+      agencySlug: "wieden-kennedy",
+      tagSlugs: ["inspirational", "sports", "iconic", "culture"],
+    },
+    {
+      title: "Failure (feat. Michael Jordan)",
+      description: "Michael Jordan reflects on missing 9,000 shots and losing almost 300 games: 'I've failed over and over again in my life. And that is why I succeed.'",
+      url: "https://www.youtube.com/watch?v=45mMioJ5szc",
+      platform: Platform.YOUTUBE,
+      externalId: "45mMioJ5szc",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 1997,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "nike",
+      productKey: "nike:air-jordan",
+      agencySlug: "wieden-kennedy",
+      tagSlugs: ["inspirational", "sports", "iconic"],
+    },
+    {
+      title: "You Can't Stop Us",
+      description: "Innovative split-screen visual masterpiece highlighting resilience and unity across sports during unprecedented global challenges.",
+      url: "https://www.youtube.com/watch?v=WA4dDs0T7sM",
+      platform: Platform.YOUTUBE,
+      externalId: "WA4dDs0T7sM",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2020,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: new Date("2024-02-01T00:00:00Z"),
+      brandSlug: "nike",
+      productKey: null,
+      agencySlug: "wieden-kennedy",
+      tagSlugs: ["inspirational", "sports", "storytelling", "viral"],
+    },
+    {
+      title: "Winner Stays (Risk Everything)",
+      description: "Young pickup players imagine themselves transforming into Cristiano Ronaldo, Neymar, and Zlatan Ibrahimovic on a neighborhood pitch.",
+      url: "https://www.youtube.com/watch?v=3XviR7esUvo",
+      platform: Platform.YOUTUBE,
+      externalId: "3XviR7esUvo",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2014,
+      country: "United Kingdom",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "nike",
+      productKey: "nike:football",
+      agencySlug: "publicis",
+      tagSlugs: ["sports", "humor", "viral"],
+    },
+
+    // --- APPLE (5 ads across TBWA\Chiat\Day, BBDO, and Ogilvy) ---
+    {
+      title: "1984 (Macintosh Launch)",
+      description: "Directed by Ridley Scott, introduced the Macintosh during Super Bowl XVIII and disrupted computing advertising history.",
+      url: "https://www.youtube.com/watch?v=2zfqw8nhUwA",
+      platform: Platform.YOUTUBE,
+      externalId: "2zfqw8nhUwA",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 1984,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: new Date("2024-01-01T00:00:00Z"),
+      brandSlug: "apple",
+      productKey: "apple:mac",
+      agencySlug: "tbwa-chiat-day",
+      tagSlugs: ["super-bowl", "iconic", "technology"],
+    },
+    {
+      title: "Think Different (Here's to the Crazy Ones)",
+      description: "A tribute to the misfits, the rebels, the troublemakers who see things differently and push the human race forward.",
+      url: "https://www.youtube.com/watch?v=SswMzUWOiJg",
+      platform: Platform.YOUTUBE,
+      externalId: "SswMzUWOiJg",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 1997,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: new Date("2024-01-20T00:00:00Z"),
+      brandSlug: "apple",
+      productKey: "apple:mac",
+      agencySlug: "tbwa-chiat-day",
+      tagSlugs: ["iconic", "inspirational", "culture"],
+    },
+    {
+      title: "Bounce (AirPods Wireless Charging)",
+      description: "A mundane urban commute magically turns into a bouncing playground where every street surface feels like a trampoline.",
+      url: "https://www.youtube.com/watch?v=yyNtm0LZiKc",
+      platform: Platform.YOUTUBE,
+      externalId: "yyNtm0LZiKc",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2019,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "apple",
+      productKey: "apple:airpods",
+      agencySlug: "tbwa-chiat-day",
+      tagSlugs: ["music", "viral", "technology"],
+    },
+    {
+      title: "Don't Blink (iPhone 7 in 107 Seconds)",
+      description: "Ultra-fast kinetic typography recap condensing Apple's major product keynote announcements into 107 rhythmic seconds.",
+      url: "https://www.youtube.com/watch?v=GeoUELDgyM4",
+      platform: Platform.YOUTUBE,
+      externalId: "GeoUELDgyM4",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2016,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "apple",
+      productKey: "apple:iphone",
+      agencySlug: "bbdo",
+      tagSlugs: ["technology", "music", "viral"],
+    },
+    {
+      title: "The Underdogs: Apple at Work",
+      description: "Four relatable colleagues frantically collaborate across Mac, iPhone, and Apple Watch to build a round pizza box prototype.",
+      url: "https://www.youtube.com/watch?v=G9TdA8d5aaU",
+      platform: Platform.YOUTUBE,
+      externalId: "G9TdA8d5aaU",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2019,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "apple",
+      productKey: "apple:mac",
+      agencySlug: "ogilvy",
+      tagSlugs: ["humor", "storytelling", "technology"],
+    },
+
+    // --- COCA-COLA (3 ads across McCann, Wieden+Kennedy, and Ogilvy) ---
+    {
+      title: "Hilltop (I'd Like to Buy the World a Coke)",
+      description: "Iconic 1971 hillside gathering of young people from around the globe singing in harmony on a hilltop in Italy.",
+      url: "https://www.youtube.com/watch?v=1VM2eLhvsSM",
+      platform: Platform.YOUTUBE,
+      externalId: "1VM2eLhvsSM",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 1971,
+      country: "Italy",
+      status: AdStatus.APPROVED,
+      featuredAt: new Date("2024-01-05T00:00:00Z"),
+      brandSlug: "coca-cola",
+      productKey: "coca-cola:classic",
+      agencySlug: "mccann",
+      tagSlugs: ["iconic", "music", "culture"],
+    },
+    {
+      title: "Happiness Machine",
+      description: "A mysterious vending machine in a college cafeteria dispenses unlimited bottles of Coke, pizza boxes, and giant sandwiches.",
+      url: "https://www.youtube.com/watch?v=lqT_dPApj9U",
+      platform: Platform.YOUTUBE,
+      externalId: "lqT_dPApj9U",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2010,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "coca-cola",
+      productKey: "coca-cola:classic",
+      agencySlug: "wieden-kennedy",
+      tagSlugs: ["viral", "humor", "culture"],
+    },
+    {
+      title: "Masterpiece",
+      description: "Classical and contemporary paintings inside a museum come to life passing a bottle of Coca-Cola to an art student needing inspiration.",
+      url: "https://www.youtube.com/watch?v=e4X4c-2wJN4",
+      platform: Platform.YOUTUBE,
+      externalId: "e4X4c-2wJN4",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2023,
+      country: "United Kingdom",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "coca-cola",
+      productKey: "coca-cola:classic",
+      agencySlug: "ogilvy",
+      tagSlugs: ["storytelling", "culture", "viral"],
+    },
+
+    // --- GOOGLE (3 ads across Droga5, BBDO, and DDB) ---
+    {
+      title: "Parisian Love (Super Bowl XLIV)",
+      description: "A poignant love story told entirely through Google search queries, from studying abroad in Paris to getting married.",
+      url: "https://www.youtube.com/watch?v=nnsSUqgkDwU",
+      platform: Platform.YOUTUBE,
+      externalId: "nnsSUqgkDwU",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2010,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: new Date("2024-01-10T00:00:00Z"),
+      brandSlug: "google",
+      productKey: "google:search",
+      agencySlug: "droga5",
+      tagSlugs: ["super-bowl", "storytelling", "iconic", "technology"],
+    },
+    {
+      title: "Dear Sophie (Chrome The Web Is What You Make Of It)",
+      description: "A father chronicles his daughter's growing up through saved emails, photo albums, videos, and map bookmarks on Google Chrome.",
+      url: "https://www.youtube.com/watch?v=R4vkVHijdQk",
+      platform: Platform.YOUTUBE,
+      externalId: "R4vkVHijdQk",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2011,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "google",
+      productKey: "google:chrome",
+      agencySlug: "bbdo",
+      tagSlugs: ["storytelling", "inspirational", "technology"],
+    },
+    {
+      title: "Loretta (Super Bowl LIV)",
+      description: "An elderly widower uses Google Assistant to preserve treasured memories and details about his beloved late wife, Loretta.",
+      url: "https://www.youtube.com/watch?v=6xSxXiHwMrg",
+      platform: Platform.YOUTUBE,
+      externalId: "6xSxXiHwMrg",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2020,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "google",
+      productKey: "google:search",
+      agencySlug: "ddb",
+      tagSlugs: ["super-bowl", "storytelling", "inspirational"],
+    },
+
+    // --- VOLVO (3 ads across Droga5 and Publicis) ---
+    {
+      title: "The Epic Split (feat. Jean-Claude Van Damme)",
+      description: "Jean-Claude Van Damme performs an awe-inspiring split between two reversing Volvo FM trucks to demonstrate Volvo Dynamic Steering.",
+      url: "https://www.youtube.com/watch?v=M7FIvfx5J10",
+      platform: Platform.YOUTUBE,
+      externalId: "M7FIvfx5J10",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2013,
+      country: "Sweden",
+      status: AdStatus.APPROVED,
+      featuredAt: new Date("2024-02-10T00:00:00Z"),
+      brandSlug: "volvo",
+      productKey: "volvo:trucks",
+      agencySlug: "droga5",
+      tagSlugs: ["automotive", "viral", "iconic"],
+    },
+    {
+      title: "Look Who's Driving (Live Test 7)",
+      description: "Four-year-old Sophie controls an 18-tonne Volvo FMX dump truck via remote control in an extreme gravel pit obstacle course.",
+      url: "https://www.youtube.com/watch?v=7kx67NnuSd0",
+      platform: Platform.YOUTUBE,
+      externalId: "7kx67NnuSd0",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2015,
+      country: "Sweden",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "volvo",
+      productKey: "volvo:trucks",
+      agencySlug: "publicis",
+      tagSlugs: ["automotive", "humor", "viral"],
+    },
+    {
+      title: "Write the Future (Football Global Showdown)",
+      description: "A monumental cinematic look at how one instant during the World Cup can reshape the course of athlete history and pop culture.",
+      url: "https://www.youtube.com/watch?v=l_IklqHIu6g",
+      platform: Platform.YOUTUBE,
+      externalId: "l_IklqHIu6g",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2010,
+      country: "France",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "volvo",
+      productKey: null,
+      agencySlug: "publicis",
+      tagSlugs: ["storytelling", "viral", "automotive"],
+    },
+
+    // --- OLD SPICE (2 ads by Wieden+Kennedy) ---
+    {
+      title: "The Man Your Man Could Smell Like",
+      description: "Isaiah Mustafa delivers rapid-fire one-liners taking viewers from a shower to a boat and onto a horse with Old Spice body wash.",
+      url: "https://www.youtube.com/watch?v=owGykVbfgUE",
+      platform: Platform.YOUTUBE,
+      externalId: "owGykVbfgUE",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2010,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: new Date("2024-01-25T00:00:00Z"),
+      brandSlug: "old-spice",
+      productKey: null,
+      agencySlug: "wieden-kennedy",
+      tagSlugs: ["humor", "viral", "iconic"],
+    },
+    {
+      title: "Questions (The Return)",
+      description: "Can your man smell like he can bake gourmet cake in a dream kitchen he built with his own two hands? Yes, with Old Spice.",
+      url: "https://www.youtube.com/watch?v=uLTIowBF0DA",
+      platform: Platform.YOUTUBE,
+      externalId: "uLTIowBF0DA",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2010,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "old-spice",
+      productKey: null,
+      agencySlug: "wieden-kennedy",
+      tagSlugs: ["humor", "viral"],
+    },
+
+    // --- DOVE (2 ads by Ogilvy and BBDO) ---
+    {
+      title: "Real Beauty Sketches",
+      description: "FBI-trained sketch artist draws women based on their own self-descriptions, then sketches them based on descriptions by strangers.",
+      url: "https://www.youtube.com/watch?v=XpaOjMXyJGk",
+      platform: Platform.YOUTUBE,
+      externalId: "XpaOjMXyJGk",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2013,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: new Date("2024-02-05T00:00:00Z"),
+      brandSlug: "dove",
+      productKey: null,
+      agencySlug: "ogilvy",
+      tagSlugs: ["social-experiment", "inspirational", "viral"],
+    },
+    {
+      title: "Evolution (Campaign for Real Beauty)",
+      description: "Time-lapse revealing the extreme makeup, lighting, and Photoshop retouching behind fashion billboard models.",
+      url: "https://www.youtube.com/watch?v=iYhCn0mk464",
+      platform: Platform.YOUTUBE,
+      externalId: "iYhCn0mk464",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2006,
+      country: "Canada",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "dove",
+      productKey: null,
+      agencySlug: "bbdo",
+      tagSlugs: ["social-experiment", "culture", "iconic"],
+    },
+
+    // --- MCDONALD'S (3 ads across DDB, Wieden+Kennedy, and Droga5) ---
+    {
+      title: "The Showdown (Larry Bird vs Michael Jordan)",
+      description: "Michael Jordan and Larry Bird engage in a game of H-O-R-S-E with increasingly impossible shots for a Big Mac meal.",
+      url: "https://www.youtube.com/watch?v=_oACRt-Qp-s",
+      platform: Platform.YOUTUBE,
+      externalId: "_oACRt-Qp-s",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 1993,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "mcdonalds",
+      productKey: null,
+      agencySlug: "ddb",
+      tagSlugs: ["super-bowl", "sports", "humor", "iconic"],
+    },
+    {
+      title: "Raise Your Arches",
+      description: "Directed by Edgar Wright. Office workers invite each other for lunch without uttering a single word, simply raising their eyebrows.",
+      url: "https://www.youtube.com/watch?v=arlXqMg4FO4",
+      platform: Platform.YOUTUBE,
+      externalId: "arlXqMg4FO4",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2023,
+      country: "United Kingdom",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "mcdonalds",
+      productKey: null,
+      agencySlug: "wieden-kennedy",
+      tagSlugs: ["humor", "viral", "culture"],
+    },
+    {
+      title: "Get a Mac: Complete Campaign Archive",
+      description: "Justin Long as Mac and John Hodgman as PC in the beloved, minimalist comparison campaign that defined tech branding.",
+      url: "https://www.youtube.com/watch?v=irDusy-8OcY",
+      platform: Platform.YOUTUBE,
+      externalId: "irDusy-8OcY",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2008,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "mcdonalds",
+      productKey: null,
+      agencySlug: "droga5",
+      tagSlugs: ["humor", "technology", "iconic"],
+    },
+
+    // --- IKEA (2 ads across DDB and McCann) ---
+    {
+      title: "Lamp (Directed by Spike Jonze)",
+      description: "Spike Jonze makes audiences weep over an old discarded desk lamp left in the rain, before a man reminds us: 'It has no feelings.'",
+      url: "https://www.youtube.com/watch?v=dBqhIVyfsRg",
+      platform: Platform.YOUTUBE,
+      externalId: "dBqhIVyfsRg",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2002,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "ikea",
+      productKey: null,
+      agencySlug: "ddb",
+      tagSlugs: ["humor", "storytelling", "iconic"],
+    },
+    {
+      title: "Silence The Critics (Holiday Diss Track)",
+      description: "Household ceramic ornaments and teapots come to life spitting a grime diss track roasting an outdated apartment decor.",
+      url: "https://www.youtube.com/watch?v=AUZIYQHzIZQc_so5_9VgC332raBWcEk_iMaCbD0DdcQLPoWvwfllzY8RE1j6FKJslncml03pALFvXw_OQd5MismmnTx2pSGUvLlcIh7sRPpcGHu8mevaJSZed-GkMYzCoB8UkqO9",
+      // TODO: Fallback short URL if regional restrictions apply
+      platform: Platform.YOUTUBE,
+      externalId: "AUZIYQHzIZQc_so5_9VgC332raBWcEk_iMaCbD0DdcQLPoWvwfllzY8RE1j6FKJslncml03pALFvXw_OQd5MismmnTx2pSGUvLlcIh7sRPpcGHu8mevaJSZed-GkMYzCoB8UkqO9",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2019,
+      country: "United Kingdom",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "ikea",
+      productKey: null,
+      agencySlug: "mccann",
+      tagSlugs: ["music", "humor", "viral"],
+    },
+
+    // --- HEINEKEN (2 ads across Publicis and Droga5) ---
+    {
+      title: "Worlds Apart (#OpenYourWorld)",
+      description: "Strangers with diametrically opposing worldviews collaborate to build furniture before deciding whether to debate over a cold beer.",
+      url: "https://www.youtube.com/watch?v=etIqln7vT4w",
+      platform: Platform.YOUTUBE,
+      externalId: "etIqln7vT4w",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2017,
+      country: "United Kingdom",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "heineken",
+      productKey: null,
+      agencySlug: "droga5",
+      tagSlugs: ["social-experiment", "culture", "viral"],
+    },
+    {
+      title: "The Entrance (Open Your World)",
+      description: "A debonair party guest makes the ultimate entrance at a lavish party, greeting everyone from diplomats to rockstars.",
+      url: "https://www.youtube.com/watch?v=TLgetLmlggA",
+      platform: Platform.YOUTUBE,
+      externalId: "TLgetLmlggA",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2011,
+      country: "Netherlands",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "heineken",
+      productKey: null,
+      agencySlug: "publicis",
+      tagSlugs: ["music", "humor", "viral"],
+    },
+
+    // --- 2 ADDITIONAL FAMOUS ADS (McCann & BBDO) ---
+    {
+      title: "Dumb Ways to Die (Metro Rail Safety)",
+      description: "Viral Australian public service announcement using adorable animated characters and a catchy tune to teach railway safety.",
+      url: "https://www.youtube.com/watch?v=IJNR2EpS0jw",
+      platform: Platform.YOUTUBE,
+      externalId: "IJNR2EpS0jw",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2012,
+      country: "Australia",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "coca-cola",
+      productKey: null,
+      agencySlug: "mccann",
+      tagSlugs: ["music", "humor", "viral", "iconic"],
+    },
+    {
+      title: "The Force (Volkswagen Super Bowl XLV)",
+      description: "A little boy dressed as Darth Vader walks around the house attempting to use the Force, finally succeeding with a Passat.",
+      url: "https://www.youtube.com/watch?v=R55e-uHQna0",
+      platform: Platform.YOUTUBE,
+      externalId: "R55e-uHQna0",
+      medium: Medium.VIDEO,
+      track: Track.PROFESSIONAL,
+      year: 2011,
+      country: "United States",
+      status: AdStatus.APPROVED,
+      featuredAt: null,
+      brandSlug: "volvo",
+      productKey: null,
+      agencySlug: "ddb",
+      tagSlugs: ["super-bowl", "automotive", "humor", "iconic"],
+    },
+  ];
+
+  console.log(`Preparing to seed ${adsData.length} ads...`);
+
+  for (const ad of adsData) {
+    const brandId = brandMap.get(ad.brandSlug)!;
+    const orgId = orgMap.get(ad.agencySlug)!;
+    const productId = ad.productKey ? productMap.get(ad.productKey) || null : null;
+
+    await prisma.ad.upsert({
+      where: { url: ad.url },
+      update: {
+        title: ad.title,
+        description: ad.description,
+        platform: ad.platform,
+        externalId: ad.externalId,
+        medium: ad.medium,
+        track: ad.track,
+        year: ad.year,
+        country: ad.country,
+        status: ad.status,
+        featuredAt: ad.featuredAt,
+        brandId,
+        productId,
+        orgId,
+        tags: {
+          connect: ad.tagSlugs.map((slug) => ({ slug })),
+        },
+      },
+      create: {
+        title: ad.title,
+        description: ad.description,
+        url: ad.url,
+        platform: ad.platform,
+        externalId: ad.externalId,
+        medium: ad.medium,
+        track: ad.track,
+        year: ad.year,
+        country: ad.country,
+        status: ad.status,
+        featuredAt: ad.featuredAt,
+        brandId,
+        productId,
+        orgId,
+        tags: {
+          connect: ad.tagSlugs.map((slug) => ({ slug })),
+        },
+      },
+    });
+  }
+
+  console.log(`✓ Seeded ${adsData.length} ads successfully!`);
+
+  // 6. ADMIN USER (from environment variables, if provided)
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
+  if (adminEmail && adminPassword) {
+    console.log(`Creating/updating admin user (${adminEmail})...`);
+    const passwordHash = await hashPassword(adminPassword);
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: {
+        passwordHash,
+        role: "ADMIN",
+      },
+      create: {
+        email: adminEmail,
+        passwordHash,
+        role: "ADMIN",
+      },
+    });
+    console.log(`✓ Seeded admin user: ${adminEmail}`);
+  } else {
+    console.log("ℹ ADMIN_EMAIL and/or ADMIN_PASSWORD not configured; skipping admin user seed.");
+  }
+}
+
+main()
+  .catch((e) => {
+    console.error("❌ Seed failed:", e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

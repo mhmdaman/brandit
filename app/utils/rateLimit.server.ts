@@ -130,6 +130,32 @@ export function checkReportRateLimit(ip: string): boolean {
 }
 
 /**
+ * Bookmark: max 60 per hour per user.
+ */
+const BOOKMARK_CONFIG: RateLimitConfig = {
+  max: 60,
+  windowMs: 60 * 60 * 1000, // 1 hour
+};
+
+export function checkBookmarkRateLimit(userId: string): boolean {
+  const key = `bookmark:${userId}`;
+  return isRateLimited(key, BOOKMARK_CONFIG, true);
+}
+
+/**
+ * Search Suggest: max 60 per minute per IP.
+ */
+const SUGGEST_CONFIG: RateLimitConfig = {
+  max: 60,
+  windowMs: 60 * 1000, // 1 minute
+};
+
+export function checkSuggestRateLimit(ip: string): boolean {
+  const key = `suggest:${ip}`;
+  return isRateLimited(key, SUGGEST_CONFIG, true);
+}
+
+/**
  * Creates a standard friendly 429 Too Many Requests response.
  */
 export function createRateLimitResponse(
@@ -143,3 +169,4 @@ export function createRateLimitResponse(
     },
   });
 }
+

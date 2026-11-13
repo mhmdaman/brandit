@@ -33,3 +33,4 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   return json({ brands });
 }
+

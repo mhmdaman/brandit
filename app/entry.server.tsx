@@ -21,13 +21,13 @@ function applySecurityHeaders(headers: Headers) {
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 
-  // Content-Security-Policy: restrict frame-src to youtube-nocookie.com only.
-  // TODO: Add support in frame-src for Instagram embeds (https://www.instagram.com) in future phase.
-  // TODO: Add support in frame-src for TikTok embeds (https://www.tiktok.com) in future phase.
-  // TODO: Add support in frame-src for Facebook video embeds (https://www.facebook.com) in future phase.
+  // Content-Security-Policy:
+  // - frame-src: youtube-nocookie.com, tiktok.com, instagram.com, facebook.com, player.vimeo.com
+  // - img-src: allow https: (thumbnails are hotlinked from many hosts)
+  // NOTE: These third-party embed origins must be re-checked if an embed stops loading.
   headers.set(
     "Content-Security-Policy",
-    "frame-src https://www.youtube-nocookie.com;"
+    "frame-src 'self' https://www.youtube-nocookie.com https://www.tiktok.com https://www.instagram.com https://www.facebook.com https://player.vimeo.com; img-src 'self' data: https:;"
   );
 }
 

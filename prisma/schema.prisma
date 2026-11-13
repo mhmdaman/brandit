@@ -23,6 +23,7 @@ enum Platform {
   TIKTOK
   FACEBOOK
   OTHER
+  VIMEO
 }
 
 enum Medium {
@@ -110,6 +111,8 @@ model Ad {
   track       Track
   year        Int
   country         String
+  school          String?
+  course          String?
   status          AdStatus  @default(PENDING)
   rejectionReason String?
   featuredAt      DateTime?
@@ -122,8 +125,9 @@ model Ad {
   createdAt       DateTime  @default(now())
 
   // Relations
-  tags    Tag[]
-  reports Report[]
+  tags      Tag[]
+  reports   Report[]
+  bookmarks Bookmark[]
 
   @@index([status, createdAt])
   @@index([brandId])
@@ -159,4 +163,19 @@ model User {
   orgId        String?
   org          Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
   createdAt    DateTime     @default(now())
+
+  // Relations
+  bookmarks Bookmark[]
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  adId      String
+  ad        Ad       @relation(fields: [adId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, adId])
+  @@index([userId])
 }

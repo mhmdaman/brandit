@@ -15,7 +15,10 @@ export function Layout({ children }: LayoutProps) {
       <header className="site-header">
         <div className="site-header-inner">
           <Link to="/" className="site-brand" aria-label="Brandit Home">
-            <span className="brand-dot" />
+            {/* Triangle logo matching screenshot */}
+            <svg className="brand-logo-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+              <path d="M14 3L26 24H2L14 3Z" fill="white"/>
+            </svg>
             <span>Brandit</span>
           </Link>
 
@@ -93,7 +96,7 @@ export function Layout({ children }: LayoutProps) {
       <footer className="site-footer">
         <div className="site-footer-inner">
           <p>© {new Date().getFullYear()} Brandit. A curated ad campaign gallery.</p>
-          <p>Phase 2 • Platform, Organization Profiles &amp; Moderation.</p>
+          <p>The Art of Advertising.</p>
         </div>
       </footer>
     </div>

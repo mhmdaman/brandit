@@ -108,7 +108,7 @@ export default function AgencyDetail() {
             </div>
           )}
           <div className="profile-meta-item">
-            Seeded Campaigns: <strong>{ads.length}</strong>
+            Total Campaigns: <strong>{ads.length}</strong>
           </div>
           {agency.website && (
             <div className="profile-meta-item">

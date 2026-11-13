@@ -88,9 +88,14 @@ export async function loader({ params }: LoaderFunctionArgs) {
   return json({ ad });
 }
 
+interface ActionData {
+  reportError?: string;
+  reportSuccess?: boolean;
+}
+
 export async function action({ request, params }: ActionFunctionArgs) {
   if (request.method.toUpperCase() !== "POST") {
-    return json({ reportError: "Method not allowed" }, { status: 405 });
+    return json<ActionData>({ reportError: "Method not allowed" }, { status: 405 });
   }
 
   const { id } = params;
@@ -100,7 +105,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   const clientIp = getClientIp(request);
   if (checkReportRateLimit(clientIp)) {
-    return json(
+    return json<ActionData>(
       {
         reportError: "You have submitted too many reports recently. Please wait before submitting another.",
       },
@@ -112,7 +117,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const reason = (formData.get("reason") as string)?.trim();
 
   if (!reason || reason.length < 5) {
-    return json(
+    return json<ActionData>(
       {
         reportError: "Please provide a detailed reason for reporting this ad (at least 5 characters).",
       },
@@ -121,7 +126,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   if (reason.length > 1000) {
-    return json(
+    return json<ActionData>(
       {
         reportError: "Report reason cannot exceed 1000 characters.",
       },
@@ -136,7 +141,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     },
   });
 
-  return json({ reportSuccess: true });
+  return json<ActionData>({ reportSuccess: true });
 }
 
 export default function AdDetail() {

@@ -94,3 +94,4 @@ export async function generateUniqueProductSlug(brandId: string, name: string): 
 export function generateTagSlug(name: string): string {
   return slugify(name).slice(0, 30);
 }
+

@@ -27,7 +27,8 @@ export interface AdCardProps {
 }
 
 export function AdCard({ ad, isBookmarked = false, isLoggedIn = false }: AdCardProps) {
-  const [imgError, setImgError] = useState(false);
+  // null = verifying, true = valid cover image loaded, false = missing/broken/dot-dot-dot placeholder
+  const [hasValidImage, setHasValidImage] = useState<boolean | null>(null);
 
   // Determine thumbnail URL
   let thumbnailUrl: string | null = null;
@@ -37,21 +38,45 @@ export function AdCard({ ad, isBookmarked = false, isLoggedIn = false }: AdCardP
     thumbnailUrl = `https://i.ytimg.com/vi/${ad.externalId}/hqdefault.jpg`;
   }
 
+  // If no thumbnail URL provided at all, or verified to be missing / dot-dot-dot placeholder, remove the ad
+  if (!thumbnailUrl || hasValidImage === false) {
+    return null;
+  }
+
   return (
-    <article className="ad-card" id={`ad-card-${ad.id}`}>
+    <article
+      className="ad-card"
+      id={`ad-card-${ad.id}`}
+      style={{ display: hasValidImage === true ? "flex" : "none" }}
+    >
       <div className="ad-card-thumb-wrap">
         <Link to={`/ads/${ad.id}`} className="ad-card-thumb-link" tabIndex={-1} aria-hidden="true">
-          {thumbnailUrl && !imgError ? (
-            <img
-              src={thumbnailUrl}
-              alt={ad.title}
-              className="ad-card-thumb"
-              loading="lazy"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <div className="thumb-placeholder">{ad.platform || ad.brand.name}</div>
-          )}
+          <img
+            src={thumbnailUrl}
+            alt={ad.title}
+            className="ad-card-thumb"
+            loading="lazy"
+            ref={(node) => {
+              if (node && node.complete && hasValidImage === null) {
+                // If already loaded or cached, inspect dimensions immediately:
+                // YouTube returns a 120x90 image (grey TV screen with '...') for invalid/dead IDs
+                if (node.naturalWidth <= 120 || node.naturalHeight <= 90) {
+                  setHasValidImage(false);
+                } else {
+                  setHasValidImage(true);
+                }
+              }
+            }}
+            onLoad={(e) => {
+              // YouTube serves a 120x90 placeholder image with 3 dots when thumbnail is unavailable
+              if (e.currentTarget.naturalWidth <= 120 || e.currentTarget.naturalHeight <= 90) {
+                setHasValidImage(false);
+              } else {
+                setHasValidImage(true);
+              }
+            }}
+            onError={() => setHasValidImage(false)}
+          />
 
           {ad.featuredAt && (
             <span className="badge-featured" title="Featured Campaign">

@@ -1,7 +1,8 @@
+import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData, useNavigation } from "@remix-run/react";
-import { Medium, Track } from "@prisma/client";
+import { Medium, Track, Platform } from "@prisma/client";
 import { prisma } from "~/db.server";
 import { requireUser } from "~/session.server";
 import { parseAdUrl } from "~/utils/parseAdUrl.server";
@@ -60,6 +61,8 @@ interface ActionData {
     country?: string;
     medium?: string;
     track?: string;
+    school?: string;
+    course?: string;
     tags?: string;
     imageUrl?: string;
   };
@@ -107,6 +110,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const country = (formData.get("country") as string)?.trim() || "";
   const medium = (formData.get("medium") as string)?.trim() || "";
   const track = (formData.get("track") as string)?.trim() || "";
+  const school = (formData.get("school") as string)?.trim() || "";
+  const course = (formData.get("course") as string)?.trim() || "";
   const tagsStr = (formData.get("tags") as string)?.trim() || "";
   const imageUrl = (formData.get("imageUrl") as string)?.trim() || "";
 
@@ -146,6 +151,15 @@ export async function action({ request, params }: ActionFunctionArgs) {
   const validTracks = Object.values(Track) as string[];
   if (!track || !validTracks.includes(track)) {
     fieldErrors.track = "Please select a valid track.";
+  } else if (track === "STUDENT") {
+    if (!school) {
+      fieldErrors.school = "School name is required for student submissions.";
+    } else if (school.length < 2 || school.length > 120) {
+      fieldErrors.school = "School name must be between 2 and 120 characters.";
+    }
+    if (course && course.length > 120) {
+      fieldErrors.course = "Course name cannot exceed 120 characters.";
+    }
   }
 
   if (imageUrl && !isValidHttpUrl(imageUrl)) {
@@ -153,14 +167,17 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   let normalisedUrl = "";
-  let parsedPlatform = { platform: "OTHER" as const, externalId: null as string | null };
+  let parsedPlatform: { platform: Platform; externalId: string | null } = {
+    platform: Platform.OTHER,
+    externalId: null,
+  };
 
   if (!fieldErrors.url) {
     try {
-      normalisedUrl = normaliseUrl(rawUrl);
-      const parsed = parseAdUrl(rawUrl);
+      normalisedUrl = await normaliseUrl(rawUrl);
+      const parsed = await parseAdUrl(rawUrl);
       parsedPlatform = {
-        platform: parsed.platform as any,
+        platform: parsed.platform as Platform,
         externalId: parsed.externalId,
       };
     } catch {
@@ -271,6 +288,8 @@ export async function action({ request, params }: ActionFunctionArgs) {
         imageUrl: imageUrl || null,
         medium: medium as Medium,
         track: track as Track,
+        school: track === "STUDENT" ? school : null,
+        course: track === "STUDENT" ? (course || null) : null,
         year: yearNum,
         country,
         status: "PENDING", // reset to pending review
@@ -298,6 +317,7 @@ export default function EditAdRoute() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
+  const [trackVal, setTrackVal] = useState(ad.track);
 
   const defaultTags = ad.tags.map((t) => t.name).join(", ");
 
@@ -462,7 +482,8 @@ export default function EditAdRoute() {
                 id="track"
                 name="track"
                 required
-                defaultValue={ad.track}
+                value={trackVal}
+                onChange={(e) => setTrackVal(e.target.value as Track)}
                 className={actionData?.fieldErrors?.track ? "input-error" : ""}
               >
                 <option value="PROFESSIONAL">Professional Work</option>
@@ -470,6 +491,45 @@ export default function EditAdRoute() {
               </select>
             </div>
           </div>
+
+          {trackVal === "STUDENT" && (
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="school">
+                  School / University <span className="req-star">*</span>
+                </label>
+                <input
+                  id="school"
+                  name="school"
+                  type="text"
+                  required
+                  placeholder="e.g. Miami Ad School, NFTS, Hyper Island"
+                  defaultValue={ad.school || ""}
+                  className={actionData?.fieldErrors?.school ? "input-error" : ""}
+                />
+                <span className="form-hint">2 to 120 characters</span>
+                {actionData?.fieldErrors?.school && (
+                  <span className="form-error-msg">{actionData.fieldErrors.school}</span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="course">Course / Degree (optional)</label>
+                <input
+                  id="course"
+                  name="course"
+                  type="text"
+                  placeholder="e.g. Art Direction, Copywriting, Film"
+                  defaultValue={ad.course || ""}
+                  className={actionData?.fieldErrors?.course ? "input-error" : ""}
+                />
+                <span className="form-hint">Max 120 characters</span>
+                {actionData?.fieldErrors?.course && (
+                  <span className="form-error-msg">{actionData.fieldErrors.course}</span>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="tags">Tags (comma-separated)</label>

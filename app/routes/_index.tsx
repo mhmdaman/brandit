@@ -48,7 +48,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     prisma.ad.findMany({
       where: { ...baseWhere, featuredAt: { not: null } },
       orderBy: { featuredAt: "desc" },
-      take: 6,
+      take: 12,
       select: adCardSelect,
     }),
     prisma.ad.count({ where: baseWhere }),

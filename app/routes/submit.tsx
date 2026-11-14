@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, Link, useActionData, useNavigation } from "@remix-run/react";
-import { Medium, Track } from "@prisma/client";
+import { Medium, Track, Platform } from "@prisma/client";
 import { prisma } from "~/db.server";
 import { requireUser } from "~/session.server";
 import { parseAdUrl } from "~/utils/parseAdUrl.server";
 import { checkSubmitRateLimit } from "~/utils/rateLimit.server";
 import { generateTagSlug, generateUniqueBrandSlug, generateUniqueProductSlug, slugify } from "~/utils/slugify.server";
 import { isValidHttpUrl, normaliseUrl } from "~/utils/url.server";
+import { fetchOEmbedThumbnail } from "~/utils/oembed.server";
 import { AdEmbed } from "~/components/AdEmbed";
 
 export const meta: MetaFunction = () => {
@@ -37,6 +38,8 @@ interface ActionData {
     country?: string;
     medium?: string;
     track?: string;
+    school?: string;
+    course?: string;
     tags?: string;
     imageUrl?: string;
   };
@@ -55,6 +58,8 @@ interface ActionData {
     country?: string;
     medium?: string;
     track?: string;
+    school?: string;
+    course?: string;
     tags?: string;
     imageUrl?: string;
   };
@@ -90,6 +95,8 @@ export async function action({ request }: ActionFunctionArgs) {
   const country = (formData.get("country") as string)?.trim() || "";
   const medium = (formData.get("medium") as string)?.trim() || "";
   const track = (formData.get("track") as string)?.trim() || "";
+  const school = (formData.get("school") as string)?.trim() || "";
+  const course = (formData.get("course") as string)?.trim() || "";
   const tagsStr = (formData.get("tags") as string)?.trim() || "";
   const imageUrl = (formData.get("imageUrl") as string)?.trim() || "";
 
@@ -149,6 +156,15 @@ export async function action({ request }: ActionFunctionArgs) {
   const validTracks = Object.values(Track) as string[];
   if (!track || !validTracks.includes(track)) {
     fieldErrors.track = "Please select a valid track.";
+  } else if (track === "STUDENT") {
+    if (!school) {
+      fieldErrors.school = "School name is required for student submissions.";
+    } else if (school.length < 2 || school.length > 120) {
+      fieldErrors.school = "School name must be between 2 and 120 characters.";
+    }
+    if (course && course.length > 120) {
+      fieldErrors.course = "Course name cannot exceed 120 characters.";
+    }
   }
 
   // 9. Image URL validation (optional)
@@ -174,14 +190,17 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   let normalisedUrl = "";
-  let parsedPlatform = { platform: "OTHER" as const, externalId: null as string | null };
+  let parsedPlatform: { platform: Platform; externalId: string | null } = {
+    platform: Platform.OTHER,
+    externalId: null,
+  };
 
   if (!fieldErrors.url) {
     try {
-      normalisedUrl = normaliseUrl(rawUrl);
-      const parsed = parseAdUrl(rawUrl);
+      normalisedUrl = await normaliseUrl(rawUrl);
+      const parsed = await parseAdUrl(rawUrl);
       parsedPlatform = {
-        platform: parsed.platform as any,
+        platform: parsed.platform as Platform,
         externalId: parsed.externalId,
       };
     } catch {
@@ -226,6 +245,8 @@ export async function action({ request }: ActionFunctionArgs) {
               country,
               medium,
               track,
+              school,
+              course,
               tags: tagsStr,
               imageUrl,
             },
@@ -252,6 +273,8 @@ export async function action({ request }: ActionFunctionArgs) {
           country,
           medium,
           track,
+          school,
+          course,
           tags: tagsStr,
           imageUrl,
         },
@@ -334,7 +357,16 @@ export async function action({ request }: ActionFunctionArgs) {
       tagConnects.push({ id: tagRecord.id });
     }
 
-    // 4. Create the ad with orgId strictly from user.orgId
+    // 4. Resolve thumbnail (best effort oEmbed for TikTok and Vimeo if not provided)
+    let finalImageUrl = imageUrl || null;
+    if (!finalImageUrl && (parsedPlatform.platform === Platform.TIKTOK || parsedPlatform.platform === Platform.VIMEO)) {
+      const oembedThumb = await fetchOEmbedThumbnail(parsedPlatform.platform, normalisedUrl);
+      if (oembedThumb) {
+        finalImageUrl = oembedThumb;
+      }
+    }
+
+    // 5. Create the ad with orgId strictly from user.orgId
     await prisma.ad.create({
       data: {
         title,
@@ -342,9 +374,11 @@ export async function action({ request }: ActionFunctionArgs) {
         url: normalisedUrl,
         platform: parsedPlatform.platform as any,
         externalId: parsedPlatform.externalId,
-        imageUrl: imageUrl || null,
+        imageUrl: finalImageUrl,
         medium: medium as Medium,
         track: track as Track,
+        school: track === "STUDENT" ? school : null,
+        course: track === "STUDENT" ? (course || null) : null,
         year: yearNum,
         country,
         status: "PENDING",
@@ -373,6 +407,8 @@ export async function action({ request }: ActionFunctionArgs) {
           country,
           medium,
           track,
+          school,
+          course,
           tags: tagsStr,
           imageUrl,
         },
@@ -389,6 +425,7 @@ export default function SubmitRoute() {
 
   const [urlInput, setUrlInput] = useState(actionData?.fields?.url || "");
   const [brandInput, setBrandInput] = useState(actionData?.fields?.brand || "");
+  const [trackInput, setTrackInput] = useState(actionData?.fields?.track || "PROFESSIONAL");
   const [brandSuggestions, setBrandSuggestions] = useState<Array<{ id: string; name: string }>>([]);
   const [previewData, setPreviewData] = useState<{
     valid: boolean;
@@ -649,7 +686,8 @@ export default function SubmitRoute() {
                 id="track"
                 name="track"
                 required
-                defaultValue={actionData?.fields?.track || "PROFESSIONAL"}
+                value={trackInput}
+                onChange={(e) => setTrackInput(e.target.value)}
                 className={actionData?.fieldErrors?.track ? "input-error" : ""}
               >
                 <option value="PROFESSIONAL">Professional Work</option>
@@ -660,6 +698,46 @@ export default function SubmitRoute() {
               )}
             </div>
           </div>
+
+          {/* Student Fields (Progressive Disclosure) */}
+          {trackInput === "STUDENT" && (
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="school">
+                  School / University <span className="req-star">*</span>
+                </label>
+                <input
+                  id="school"
+                  name="school"
+                  type="text"
+                  required
+                  placeholder="e.g. Miami Ad School, NFTS, Hyper Island"
+                  defaultValue={actionData?.fields?.school || ""}
+                  className={actionData?.fieldErrors?.school ? "input-error" : ""}
+                />
+                <span className="form-hint">2 to 120 characters</span>
+                {actionData?.fieldErrors?.school && (
+                  <span className="form-error-msg">{actionData.fieldErrors.school}</span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="course">Course / Degree (optional)</label>
+                <input
+                  id="course"
+                  name="course"
+                  type="text"
+                  placeholder="e.g. Art Direction, Copywriting, Film"
+                  defaultValue={actionData?.fields?.course || ""}
+                  className={actionData?.fieldErrors?.course ? "input-error" : ""}
+                />
+                <span className="form-hint">Max 120 characters</span>
+                {actionData?.fieldErrors?.course && (
+                  <span className="form-error-msg">{actionData.fieldErrors.course}</span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Tags */}
           <div className="form-group">
@@ -690,7 +768,7 @@ export default function SubmitRoute() {
               className={actionData?.fieldErrors?.imageUrl ? "input-error" : ""}
             />
             <span className="form-hint">
-              Used as thumbnail or for print campaigns.
+              For Instagram and Facebook posts, paste a thumbnail image URL (optional, e.g. from the original page). Used as thumbnail or for print campaigns.
             </span>
             {actionData?.fieldErrors?.imageUrl && (
               <span className="form-error-msg">{actionData.fieldErrors.imageUrl}</span>

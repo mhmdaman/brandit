@@ -1,6 +1,19 @@
 import { Form, Link } from "@remix-run/react";
 import type { FilterChip, SearchParams } from "~/utils/search.server";
-import { buildPaginationUrl } from "~/utils/search.server";
+
+export function buildPaginationUrl(url: URL | string, targetPage: number): string {
+  const urlObj = typeof url === "string" ? new URL(url, "http://localhost") : url;
+  const nextUrl = new URL(urlObj.pathname, urlObj.origin);
+  urlObj.searchParams.forEach((val, k) => {
+    if (k !== "page") {
+      nextUrl.searchParams.set(k, val);
+    }
+  });
+  if (targetPage > 1) {
+    nextUrl.searchParams.set("page", targetPage.toString());
+  }
+  return `${nextUrl.pathname}${nextUrl.search}`;
+}
 
 interface FilterFormProps {
   params: SearchParams;
